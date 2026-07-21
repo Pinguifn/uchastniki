@@ -2600,6 +2600,14 @@ nav.bar.force-menu .mobile-menu:not(.open){
 #top #heroResidents.is-changing{opacity:0;transform:translateY(.3rem);}
 @media(prefers-reduced-motion:reduce){#top #heroResidents{transition:none;}}
 </style>
+
+<style id="residents-edge-shadow-fix">
+/* Residents: keep the first and last visible cards fully readable. */
+#residents .res-window{
+  -webkit-mask-image:none!important;
+  mask-image:none!important;
+}
+</style>
 </head>
 <body>
 <div class="sec-bg site-bg" aria-hidden="true"><span class="sec-glow sg1"></span><span class="sec-glow sg2"></span><span class="sec-glow sg3"></span><div class="sec-particles"></div></div>
@@ -3280,7 +3288,7 @@ function initResidentsCarousel(){
   function perView(){return window.innerWidth<=768?1:(window.innerWidth<=900?2:3);}
   var st=t.__resState||(t.__resState={current:0,vs:0});
   function maxIndex(n){return Math.max(0,n-perView());}
-  function viewStart(n){var mi=maxIndex(n);var vs=st.vs||0;if(vs>mi)vs=mi;if(vs<0)vs=0;if(st.current<vs)vs=st.current;else if(st.current>vs+perView()-1)vs=st.current-perView()+1;if(vs>mi)vs=mi;if(vs<0)vs=0;st.vs=vs;return vs;}
+  function viewStart(n){var mi=maxIndex(n);var vs=Math.min(Math.max(st.current,0),mi);st.vs=vs;return vs;}
   function buildDots(n){if(!dotsWrap)return;if(dotsWrap.children.length===n)return;dotsWrap.innerHTML='';for(var i=0;i<n;i++){(function(idx){var b=document.createElement('button');b.type='button';b.className='res-dot';b.setAttribute('aria-label','Резидент '+(idx+1));b.addEventListener('click',function(){st.current=idx;apply();});dotsWrap.appendChild(b);})(i);}}
   function apply(){
     var cards=cardsList();var n=cards.length;
