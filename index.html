@@ -2577,6 +2577,29 @@ nav.bar.force-menu .mobile-menu:not(.open){
   line-height:1.42!important;
 }
 </style>
+<style id="residents-photo-brightness-fix">
+/* Residents: keep every real photo at its original brightness. */
+#residents .res-card,
+#residents .res-card:not(.active),
+#residents .res-card.is-focus,
+#residents .res-card.active{
+  opacity:1!important;
+  filter:none!important;
+}
+#residents .res-photo img{
+  opacity:1!important;
+  filter:none!important;
+  -webkit-filter:none!important;
+  mix-blend-mode:normal!important;
+}
+</style>
+
+<style id="hero-resident-photo-rotation-style">
+/* Hero screen: rotate photos sourced from the Residents section. */
+#top #heroResidents{transition:opacity .24s ease,transform .24s ease;}
+#top #heroResidents.is-changing{opacity:0;transform:translateY(.3rem);}
+@media(prefers-reduced-motion:reduce){#top #heroResidents{transition:none;}}
+</style>
 </head>
 <body>
 <div class="sec-bg site-bg" aria-hidden="true"><span class="sec-glow sg1"></span><span class="sec-glow sg2"></span><span class="sec-glow sg3"></span><div class="sec-particles"></div></div>
@@ -3300,22 +3323,44 @@ function __resCardEl(r,i){
 }
 function __syncHeroResidentsFromSection(){
   var host=document.getElementById('heroResidents');
-  var sourceCards=Array.prototype.slice.call(document.querySelectorAll('#resTrack .res-card'),0,3);
+  var sourceCards=Array.prototype.slice.call(document.querySelectorAll('#resTrack .res-card'));
   if(!host||!sourceCards.length)return;
-  host.innerHTML='';
-  sourceCards.forEach(function(sourceCard){
+  if(host.__residentRotationTimer){clearInterval(host.__residentRotationTimer);host.__residentRotationTimer=null;}
+  if(host.__residentRotationDelay){clearTimeout(host.__residentRotationDelay);host.__residentRotationDelay=null;}
+  var offset=0;
+  function buildResident(sourceCard){
     var card=document.createElement('div');card.className='s-resident';
     var ph=document.createElement('span');ph.className='sr-photo';
     function fallback(){ph.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-user"></use></svg>';}
     var sourceImg=sourceCard.querySelector('.res-photo img');
     var nameNode=sourceCard.querySelector('.res-body h3');
     var full=String(nameNode?nameNode.textContent:'Участник').trim();
-    if(sourceImg){var im=sourceImg.cloneNode(false);im.loading='eager';im.alt=full||'Участник';im.onerror=fallback;ph.appendChild(im);}else{fallback();}
-    var displayName=full||'Участник';
-    var nm=document.createElement('span');nm.className='sr-name';nm.textContent=displayName;
-    card.appendChild(ph);card.appendChild(nm);host.appendChild(card);
-  });
-  host.setAttribute('aria-busy','false');
+    if(sourceImg){
+      var im=sourceImg.cloneNode(false);
+      im.loading='eager';im.alt=full||'Участник';im.onerror=fallback;
+      ph.appendChild(im);
+    }else{fallback();}
+    var nm=document.createElement('span');nm.className='sr-name';nm.textContent=full||'Участник';
+    card.appendChild(ph);card.appendChild(nm);return card;
+  }
+  function renderGroup(){
+    var fragment=document.createDocumentFragment();
+    var visibleCount=Math.min(3,sourceCards.length);
+    for(var i=0;i<visibleCount;i++)fragment.appendChild(buildResident(sourceCards[(offset+i)%sourceCards.length]));
+    host.replaceChildren(fragment);
+    host.setAttribute('aria-busy','false');
+  }
+  renderGroup();
+  if(sourceCards.length>3){
+    host.__residentRotationTimer=setInterval(function(){
+      host.classList.add('is-changing');
+      host.__residentRotationDelay=setTimeout(function(){
+        offset=(offset+3)%sourceCards.length;
+        renderGroup();
+        requestAnimationFrame(function(){host.classList.remove('is-changing');});
+      },240);
+    },5200);
+  }
 }
 function loadResidents(cb){
   if(!RESIDENTS_API){cb&&cb();return;}
