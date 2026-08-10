@@ -2608,6 +2608,85 @@ nav.bar.force-menu .mobile-menu:not(.open){
   mask-image:none!important;
 }
 </style>
+
+<style id="membership-modal-styles">
+:root{--mbm-violet:#8b5cf6;--mbm-violet-soft:#a78bfa;--mbm-surface:#100b18;--mbm-text:#fff;--mbm-muted:rgba(245,241,255,.68);--mbm-border:rgba(196,181,253,.28)}
+body.mbm-lock{overflow:hidden}
+.mbm-overlay[hidden]{display:none}
+.mbm-overlay{position:fixed;inset:0;z-index:30000;display:grid;place-items:center;padding:clamp(1rem,3vw,2rem);background:rgba(2,0,6,.8);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;transition:opacity .2s ease}
+.mbm-overlay.is-open{opacity:1}
+.mbm-dialog{position:relative;width:min(48rem,100%);max-height:calc(100dvh - clamp(2rem,6vw,4rem));overflow:auto;overscroll-behavior:contain;padding:clamp(1.35rem,3vw,2.25rem);color:var(--mbm-text);background:radial-gradient(circle at 88% 0%,rgba(124,58,237,.24),transparent 34%),linear-gradient(145deg,#171022 0%,#0b0910 68%);border:1px solid rgba(167,139,250,.42);border-radius:1.75rem;box-shadow:0 2rem 6rem rgba(0,0,0,.62),0 0 4rem rgba(124,58,237,.15);transform:translateY(1rem) scale(.985);transition:transform .22s ease;scrollbar-color:rgba(167,139,250,.45) transparent}
+.mbm-overlay.is-open .mbm-dialog{transform:none}
+.mbm-close{position:absolute;top:1rem;right:1rem;display:grid;place-items:center;width:3rem;height:3rem;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.06);color:#fff;font:400 1.8rem/1 Arial,sans-serif;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}
+.mbm-close:hover{background:rgba(139,92,246,.2);border-color:rgba(196,181,253,.5);transform:rotate(4deg)}
+.mbm-close:focus-visible,.mbm-dialog input:focus-visible,.mbm-submit:focus-visible{outline:3px solid #c4b5fd;outline-offset:3px}
+.mbm-head{padding-right:4rem;margin-bottom:1.6rem}
+.mbm-eyebrow{margin:0 0 .5rem;color:#c4b5fd;font-size:.76rem;font-weight:800;line-height:1.2;letter-spacing:.16em;text-transform:uppercase}
+.mbm-title{margin:0;color:#fff;font-size:clamp(1.8rem,4vw,2.65rem);font-weight:800;line-height:1.02;letter-spacing:-.035em}
+.mbm-subtitle{max-width:38rem;margin:.75rem 0 0;color:var(--mbm-muted);font-size:.95rem;line-height:1.5}
+.mbm-form{display:grid;gap:1rem}
+.mbm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+.mbm-field{display:grid;gap:.45rem;min-width:0}
+.mbm-field label{color:#fff;font-size:.9rem;font-weight:700;line-height:1.25}
+.mbm-required{color:#c4b5fd}
+.mbm-field input{width:100%;min-height:3.35rem;box-sizing:border-box;padding:.8rem 1rem;border:1px solid var(--mbm-border);border-radius:.8rem;background:rgba(255,255,255,.045);color:#fff;font:inherit;font-size:1rem;line-height:1.3;transition:border-color .18s ease,background .18s ease,box-shadow .18s ease}
+.mbm-field input::placeholder{color:rgba(236,231,246,.38)}
+.mbm-field input:hover{border-color:rgba(196,181,253,.46)}
+.mbm-field input:focus{border-color:#a78bfa;background:rgba(139,92,246,.08);box-shadow:0 0 0 4px rgba(139,92,246,.12)}
+.mbm-field input:user-invalid{border-color:#fb7185}
+.mbm-consent{display:flex;align-items:flex-start;gap:.7rem;margin:.1rem 0;color:var(--mbm-muted);font-size:.86rem;line-height:1.45}
+.mbm-consent input{flex:0 0 auto;width:1.15rem;height:1.15rem;margin:.15rem 0 0;accent-color:#8b5cf6}
+.mbm-consent a{color:#ddd6fe;text-decoration:underline;text-underline-offset:.18em}
+.mbm-honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.mbm-actions{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.mbm-submit{min-height:3.35rem;padding:.9rem 1.35rem;border:1px solid rgba(221,214,254,.48);border-radius:.9rem;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;font:inherit;font-size:.92rem;font-weight:800;letter-spacing:.015em;text-transform:uppercase;cursor:pointer;box-shadow:0 1rem 2.5rem -1.1rem rgba(124,58,237,.78),inset 0 1px 0 rgba(255,255,255,.2);transition:transform .18s ease,filter .18s ease}
+.mbm-submit:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.mbm-submit:disabled{cursor:wait;filter:saturate(.45);opacity:.72;transform:none}
+.mbm-status{min-height:1.25rem;margin:0;color:#fda4af;font-size:.86rem;line-height:1.4}
+.mbm-success[hidden]{display:none}
+.mbm-success{padding:clamp(1rem,4vw,2rem) 0;text-align:center}
+.mbm-success-mark{display:grid;place-items:center;width:4rem;height:4rem;margin:0 auto 1.25rem;border:1px solid rgba(196,181,253,.45);border-radius:50%;background:rgba(124,58,237,.18);color:#ddd6fe;font-size:2rem}
+.mbm-success h3{margin:0;color:#fff;font-size:clamp(1.7rem,4vw,2.3rem);line-height:1.1}
+.mbm-success p{max-width:32rem;margin:.8rem auto 1.4rem;color:var(--mbm-muted);line-height:1.55}
+@media(max-width:680px){.mbm-overlay{place-items:end center;padding:0}.mbm-dialog{width:100%;max-height:94dvh;padding:1.35rem 1rem 1.5rem;border-radius:1.5rem 1.5rem 0 0}.mbm-grid{grid-template-columns:1fr;gap:.85rem}.mbm-head{padding-right:3.5rem;margin-bottom:1.25rem}.mbm-title{font-size:2rem}.mbm-subtitle{font-size:.9rem}.mbm-close{top:.8rem;right:.8rem}.mbm-submit{width:100%}.mbm-actions{display:block}}
+@media(prefers-reduced-motion:reduce){.mbm-overlay,.mbm-dialog,.mbm-close,.mbm-submit{transition:none!important}.mbm-overlay.is-open .mbm-dialog{transform:none}}
+
+/* Изоляция размеров модального окна от глобального масштабирования лендинга */
+.mbm-dialog{width:min(760px,100%);padding:32px}
+.mbm-close{top:16px;right:16px;width:48px;height:48px;font-size:29px}
+.mbm-head{padding-right:64px;margin-bottom:24px}
+.mbm-eyebrow{margin-bottom:8px;font-size:12px}
+.mbm-title{font-size:clamp(30px,4vw,42px)}
+.mbm-subtitle{margin-top:12px;font-size:15px}
+.mbm-form{gap:16px}
+.mbm-grid{gap:16px}
+.mbm-field{gap:7px}
+.mbm-field label{font-size:14px}
+.mbm-field input{min-height:54px;padding:13px 16px;border-radius:13px;font-size:16px}
+.mbm-consent{gap:11px;font-size:14px}
+.mbm-consent input{width:18px;height:18px;margin-top:2px}
+.mbm-submit{min-height:54px;padding:14px 22px;border-radius:14px;font-size:15px}
+.mbm-status{min-height:20px;font-size:14px}
+@media(max-width:680px){.mbm-dialog{max-height:94dvh;padding:22px 16px 24px}.mbm-head{padding-right:56px;margin-bottom:20px}.mbm-title{font-size:30px}.mbm-subtitle{font-size:14px}.mbm-grid{gap:13px}.mbm-close{top:13px;right:13px}.mbm-submit{width:100%}}
+.mbm-form[hidden]{display:none!important}
+
+
+/* Mobile viewport optimization v2 */
+@media(max-width:680px){
+  .mbm-overlay{padding:0}
+  .mbm-dialog{box-sizing:border-box;width:100%;height:100dvh;max-height:100dvh;padding:18px 16px max(18px,env(safe-area-inset-bottom));border-radius:0}
+  .mbm-head{padding-right:56px;margin-bottom:14px}
+  .mbm-eyebrow{margin-bottom:6px}
+  .mbm-title{font-size:28px;line-height:1.02}
+  .mbm-subtitle{margin-top:8px;font-size:14px;line-height:1.4}
+  .mbm-form{gap:12px}
+  .mbm-grid{gap:10px}
+  .mbm-field{gap:5px}
+  .mbm-field input{min-height:48px;padding:10px 14px}
+  .mbm-consent{margin:0;line-height:1.35}
+  .mbm-actions{gap:8px}
+}
+</style>
 </head>
 <body>
 <div class="sec-bg site-bg" aria-hidden="true"><span class="sec-glow sg1"></span><span class="sec-glow sg2"></span><span class="sec-glow sg3"></span><div class="sec-particles"></div></div>
@@ -3141,7 +3220,7 @@ nav.bar.force-menu .mobile-menu:not(.open){
     <p class="sa-eyebrow rv"><svg class="ic"><use href="#i-star"/></svg>Присоединяйтесь</p>
     <h2 class="sec-h rv">Стать участником</h2>
     <p class="sa-lead rv">Заполните короткую анкету и мы свяжемся с вами, чтобы пригласить в бизнес сообщество «Участники».</p>
-    <div class="sa-cta rv" style="text-align:center;margin-top:1.8rem;"><button type="button" class="btn-violet sa-cta-btn ui-btn ui-btn-primary" onclick="goPay()">Заполнить анкету</button></div>
+    <div class="sa-cta rv" style="text-align:center;margin-top:1.8rem;"><button type="button" class="btn-violet sa-cta-btn ui-btn ui-btn-primary" onclick="goPay()">Стать участником</button></div>
   </div>
 </section>
 <section id="joinForm" class="pad join has-secbg">
@@ -3212,7 +3291,7 @@ pmoveInd();
 window.addEventListener("load",pmoveInd);window.addEventListener("resize",pmoveInd);setTimeout(pmoveInd,300);
 
 function toggleForm(){var j=document.getElementById('joinForm');if(j)j.scrollIntoView({behavior:'smooth'});}
-function goPay(){window.open('https://forms.yandex.ru/u/6a44f9c56d2d73071fa0e717','_blank');}(function(){var bs=document.querySelectorAll('.sa-cta-btn');for(var i=0;i<bs.length;i++){(function(b){b.addEventListener('click',function(e){var rect=b.getBoundingClientRect();var d=2*Math.hypot(rect.width,rect.height);var r=document.createElement('span');r.className='sa-ripple';r.style.width=r.style.height=d+'px';r.style.left=(e.clientX-rect.left-d/2)+'px';r.style.top=(e.clientY-rect.top-d/2)+'px';b.appendChild(r);setTimeout(function(){if(r.parentNode)r.parentNode.removeChild(r);},600);});})(bs[i]);}})();
+function goPay(){if(window.openMembershipModal){window.openMembershipModal();return;}var m=document.getElementById('membershipModal');if(!m)return;m.hidden=false;document.body.classList.add('mbm-lock');requestAnimationFrame(function(){m.classList.add('is-open');});} function openQuestionnaire(){window.location.href='anketa.html';}(function(){var bs=document.querySelectorAll('.sa-cta-btn');for(var i=0;i<bs.length;i++){(function(b){b.addEventListener('click',function(e){var rect=b.getBoundingClientRect();var d=2*Math.hypot(rect.width,rect.height);var r=document.createElement('span');r.className='sa-ripple';r.style.width=r.style.height=d+'px';r.style.left=(e.clientX-rect.left-d/2)+'px';r.style.top=(e.clientY-rect.top-d/2)+'px';b.appendChild(r);setTimeout(function(){if(r.parentNode)r.parentNode.removeChild(r);},600);});})(bs[i]);}})();
 function resetForm(){document.getElementById('successCard').style.display='none';document.getElementById('formCard').style.display='block';document.getElementById('jform').reset();}
 
 var FORM_ENDPOINT="";
@@ -4195,7 +4274,7 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
 <button type="button" class="wi-fab" id="welcomeFab" aria-label="Открыть приглашение на открытие" hidden><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span class="wi-fab-text">Приглашение на открытие</span></button>
 <script>
 (function(){
-  var INVITE_FORM_URL='https://forms.yandex.ru/u/6a6b243b505690587152e379';
+  var INVITE_FORM_URL='anketa.html';
   var STORAGE_KEY='uch_welcome_invite_v1';
   var HIDE_AFTER_CLOSE_MS=7*24*60*60*1000;   /* закрыл — не показываем 7 дней */
   var HIDE_AFTER_CLICK_MS=180*24*60*60*1000; /* перешёл в анкету — не показываем полгода */
@@ -4312,6 +4391,173 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
   /* ручной вызов из консоли/ссылок при необходимости */
   window.openWelcomeInvite=open;
 })();
+</script>
+<div class="mbm-overlay" id="membershipModal" hidden>
+  <section class="mbm-dialog" role="dialog" aria-modal="true" aria-labelledby="membershipModalTitle" aria-describedby="membershipModalDescription">
+    <button class="mbm-close" type="button" data-membership-close aria-label="Закрыть анкету">×</button>
+    <div class="mbm-head">
+      <p class="mbm-eyebrow">Участники</p>
+      <h2 class="mbm-title" id="membershipModalTitle">Стать участником</h2>
+      <p class="mbm-subtitle" id="membershipModalDescription">Заполните короткую анкету — мы свяжемся с вами и расскажем о вступлении в сообщество.</p>
+    </div>
+    <form class="mbm-form" id="membershipForm" novalidate>
+      <div class="mbm-grid">
+        <div class="mbm-field"><label for="membershipFullName"><span class="mbm-required" aria-hidden="true">*</span> ФИО</label><input id="membershipFullName" name="fullName" autocomplete="name" maxlength="120" required></div>
+        <div class="mbm-field"><label for="membershipPhone"><span class="mbm-required" aria-hidden="true">*</span> Номер телефона</label><input id="membershipPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+7 (___) ___-__-__" maxlength="24" required></div>
+        <div class="mbm-field"><label for="membershipEmail"><span class="mbm-required" aria-hidden="true">*</span> Email</label><input id="membershipEmail" name="email" type="email" autocomplete="email" placeholder="name@example.ru" maxlength="254" required></div>
+        <div class="mbm-field"><label for="membershipTelegram"><span class="mbm-required" aria-hidden="true">*</span> Telegram</label><input id="membershipTelegram" name="telegram" autocomplete="off" placeholder="@username" maxlength="64" pattern="(@[A-Za-z0-9_]{5,32}|https?://(t\.me|telegram\.me)/[A-Za-z0-9_]{5,32})" required></div>
+        <div class="mbm-field"><label for="membershipCompany"><span class="mbm-required" aria-hidden="true">*</span> Компания</label><input id="membershipCompany" name="company" autocomplete="organization" maxlength="120" required></div>
+        <div class="mbm-field"><label for="membershipRole"><span class="mbm-required" aria-hidden="true">*</span> Роль в компании</label><input id="membershipRole" name="role" autocomplete="organization-title" maxlength="120" required></div>
+      </div>
+      <div class="mbm-honeypot" aria-hidden="true"><label for="membershipWebsite">Ваш сайт</label><input id="membershipWebsite" name="website" tabindex="-1" autocomplete="off"></div>
+      <label class="mbm-consent"><input type="checkbox" name="consent" required><span>Я соглашаюсь на <a href="soglasie-na-obrabotku-personalnyh-dannyh.html" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="politika-konfidencialnosti.html" target="_blank" rel="noopener">политику конфиденциальности</a>.</span></label>
+      <div class="mbm-actions"><button class="mbm-submit" id="membershipSubmit" type="submit">Отправить заявку</button><p class="mbm-status" id="membershipStatus" role="status" aria-live="polite"></p></div>
+    </form>
+    <div class="mbm-success" id="membershipSuccess" hidden>
+      <div class="mbm-success-mark" aria-hidden="true">✓</div>
+      <h3 tabindex="-1">Спасибо за заявку!</h3>
+      <p>Мы получили ваши данные и свяжемся с вами в ближайшее время.</p>
+      <button class="mbm-submit" type="button" data-membership-close>Закрыть</button>
+    </div>
+  </section>
+</div>
+
+
+<script id="membership-modal-script">
+(() => {
+  'use strict';
+  const modal = document.getElementById('membershipModal');
+  if (!modal) return;
+  const dialog = modal.querySelector('[role="dialog"]');
+  const form = document.getElementById('membershipForm');
+  const success = document.getElementById('membershipSuccess');
+  const status = document.getElementById('membershipStatus');
+  const submit = document.getElementById('membershipSubmit');
+  const phone = document.getElementById('membershipPhone');
+  const telegram = document.getElementById('membershipTelegram');
+  let lastFocused = null;
+  let closeTimer = 0;
+
+  const focusable = () => [...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]):not([type="hidden"])')].filter(el => !el.hidden && el.offsetParent !== null && el.tabIndex >= 0);
+
+  function openModal() {
+    clearTimeout(closeTimer);
+    lastFocused = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add('mbm-lock');
+    requestAnimationFrame(() => {
+      modal.classList.add('is-open');
+      const first = focusable()[0];
+      if (first) first.focus();
+    });
+  }
+
+  function closeModal() {
+    modal.classList.remove('is-open');
+    document.body.classList.remove('mbm-lock');
+    closeTimer = window.setTimeout(() => {
+      modal.hidden = true;
+      if (!success.hidden) {
+        form.reset();
+        form.hidden = false;
+        success.hidden = true;
+        status.textContent = '';
+      }
+      if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+    }, 220);
+  }
+
+  window.openMembershipModal = openModal;
+  window.addEventListener('open-membership-modal', openModal);
+  modal.querySelectorAll('[data-membership-close]').forEach(button => button.addEventListener('click', closeModal));
+  modal.addEventListener('click', event => { if (event.target === modal) closeModal(); });
+  modal.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); closeModal(); return; }
+    if (event.key !== 'Tab') return;
+    const items = focusable();
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+
+  function formatPhone(value) {
+    let digits = value.replace(/\D/g, '');
+    if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+    if (!digits.startsWith('7')) digits = '7' + digits;
+    digits = digits.slice(0, 11);
+    let result = '+7';
+    if (digits.length > 1) result += ' (' + digits.slice(1, 4);
+    if (digits.length >= 4) result += ')';
+    if (digits.length > 4) result += ' ' + digits.slice(4, 7);
+    if (digits.length > 7) result += '-' + digits.slice(7, 9);
+    if (digits.length > 9) result += '-' + digits.slice(9, 11);
+    return result;
+  }
+
+  phone.addEventListener('focus', () => { if (!phone.value) phone.value = '+7'; });
+  phone.addEventListener('input', () => { phone.value = formatPhone(phone.value); phone.setCustomValidity(''); });
+  telegram.addEventListener('blur', () => {
+    let value = telegram.value.trim();
+    value = value.replace(/^https?:\/\/(?:t\.me|telegram\.me)\//i, '@');
+    if (value && !value.startsWith('@')) value = '@' + value.replace(/^@+/, '');
+    telegram.value = value;
+  });
+  form.querySelectorAll('input').forEach(input => input.addEventListener('input', () => input.setCustomValidity('')));
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    status.textContent = '';
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    submit.disabled = true;
+    const oldLabel = submit.textContent;
+    submit.textContent = 'Отправляем…';
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 12000);
+    const data = new FormData(form);
+    const payload = {
+      fullName: data.get('fullName'),
+      phone: data.get('phone'),
+      email: data.get('email'),
+      telegram: data.get('telegram'),
+      company: data.get('company'),
+      role: data.get('role'),
+      consent: data.get('consent') === 'on',
+      website: data.get('website')
+    };
+    try {
+      const response = await fetch('/api/membership-applications', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Accept':'application/json'},
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (result.fields) {
+          Object.entries(result.fields).forEach(([name, message]) => {
+            const input = form.elements.namedItem(name);
+            if (input && typeof input.setCustomValidity === 'function') input.setCustomValidity(message);
+          });
+          form.reportValidity();
+        }
+        throw new Error(result.message || 'Не удалось отправить заявку.');
+      }
+      form.hidden = true;
+      success.hidden = false;
+      success.querySelector('h3').focus();
+    } catch (error) {
+      status.textContent = error.name === 'AbortError' ? 'Сервер отвечает слишком долго. Попробуйте ещё раз.' : error.message;
+    } finally {
+      clearTimeout(timer);
+      submit.disabled = false;
+      submit.textContent = oldLabel;
+    }
+  });
+
+})();
+
 </script>
 </body>
 </html>

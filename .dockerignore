@@ -1,0 +1,9 @@
+data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.csv
+.git
+.DS_Store
+node_modules
+.env

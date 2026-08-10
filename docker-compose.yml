@@ -1,0 +1,19 @@
+services:
+  site:
+    build: .
+    container_name: uchastniki-site
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATA_DIR: /app/data
+      ALLOWED_ORIGIN: https://uchastniki.site
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_TIME_ZONE: Asia/Yekaterinburg
+    volumes:
+      - ./data:/app/data
+    security_opt:
+      - no-new-privileges:true
