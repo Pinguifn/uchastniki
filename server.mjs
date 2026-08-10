@@ -16,10 +16,24 @@ const RATE_MAX = 5;
 const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TELEGRAM_CHAT_ID = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 const TELEGRAM_API_BASE = String(process.env.TELEGRAM_API_BASE || ('https:' + '//' + 'api.telegram.org')).replace(/\/+$/, '');
+const TELEGRAM_RELAY_URL = String(process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '');
+const TELEGRAM_RELAY_SECRET = String(process.env.TELEGRAM_RELAY_SECRET || '').trim();
 const TELEGRAM_TIME_ZONE = String(process.env.TELEGRAM_TIME_ZONE || 'Asia/Yekaterinburg').trim();
 const telegramPollInput = Number(process.env.TELEGRAM_POLL_MS || 15000);
 const TELEGRAM_POLL_MS = Number.isFinite(telegramPollInput) ? Math.max(1000, telegramPollInput) : 15000;
-const TELEGRAM_CONFIGURED = Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+const TELEGRAM_DIRECT_CONFIGURED = Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+const TELEGRAM_RELAY_CONFIGURED = (() => {
+  if (!TELEGRAM_RELAY_URL || TELEGRAM_RELAY_SECRET.length < 32) return false;
+  try {
+    const endpoint = new URL(TELEGRAM_RELAY_URL);
+    const loopback = endpoint.hostname === '127.0.0.1' || endpoint.hostname === 'localhost';
+    return endpoint.protocol === 'https:' || (endpoint.protocol === 'http:' && loopback);
+  } catch {
+    return false;
+  }
+})();
+const TELEGRAM_CONFIGURED = TELEGRAM_RELAY_CONFIGURED || TELEGRAM_DIRECT_CONFIGURED;
+const TELEGRAM_MODE = TELEGRAM_RELAY_CONFIGURED ? 'relay' : TELEGRAM_DIRECT_CONFIGURED ? 'direct' : 'disabled';
 
 const QUESTIONNAIRE_CSP = "default-src 'self'; script-src 'self' 'sha256-MPzOl0iuwllmXCqVr+CcDaakQedO/CjiqwhOO4t0NrA='; style-src 'self' 'sha256-OioZsI0okBQddSNeFd6uAhbw6xmaXb9I3O1ItdGx8Oo='; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
@@ -230,22 +244,31 @@ function nextTelegramAttempt(attempts) {
 async function sendTelegramMessage(message) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(`${TELEGRAM_API_BASE}/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json; charset=utf-8'},
-      body: JSON.stringify({
+  const relayMode = TELEGRAM_RELAY_CONFIGURED;
+  const endpoint = relayMode
+    ? TELEGRAM_RELAY_URL
+    : `${TELEGRAM_API_BASE}/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const headers = {'Content-Type':'application/json; charset=utf-8'};
+  if (relayMode) headers.Authorization = `Bearer ${TELEGRAM_RELAY_SECRET}`;
+  const body = relayMode
+    ? {text: message}
+    : {
         chat_id: TELEGRAM_CHAT_ID,
         text: message,
         parse_mode: 'HTML',
         disable_web_page_preview: true
-      }),
+      };
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
       signal: controller.signal
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok !== true) {
-      const description = clean(payload.description || `HTTP ${response.status}`, 300);
-      throw new Error(description || 'Telegram API error');
+      const description = clean(payload.description || payload.message || `HTTP ${response.status}`, 300);
+      throw new Error(description || 'Telegram delivery error');
     }
   } finally {
     clearTimeout(timeout);
@@ -402,7 +425,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'POST' && pathname === '/api/applications') return handleApplication(req, res);
   if (req.method === 'POST' && pathname === '/api/membership-applications') return handleMembershipApplication(req, res);
-  if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED});
+  if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED, telegramMode:TELEGRAM_MODE});
   if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic(req, res, pathname)) return;
 
   const fallback = readFileSync(join(ROOT, '404.html'));
@@ -412,8 +435,13 @@ const server = createServer(async (req, res) => {
 
 const telegramTimer = setInterval(() => void flushTelegramOutbox(), TELEGRAM_POLL_MS);
 telegramTimer.unref();
-if (TELEGRAM_CONFIGURED) setTimeout(() => void flushTelegramOutbox(), 250).unref();
-else console.warn('Telegram notifications are disabled: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.');
+if (TELEGRAM_CONFIGURED) {
+  db.prepare(`UPDATE telegram_outbox SET next_attempt_at = ? WHERE sent_at IS NULL`).run(new Date().toISOString());
+  console.log(JSON.stringify({event:'telegram_delivery_configured', mode:TELEGRAM_MODE}));
+  setTimeout(() => void flushTelegramOutbox(), 250).unref();
+} else {
+  console.warn('Telegram notifications are disabled: configure a relay or direct Telegram credentials.');
+}
 
 server.listen(PORT, HOST, () => console.log('UCHASTNIKI server listening on http://' + HOST + ':' + PORT));
 function shutdown() {

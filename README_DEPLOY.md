@@ -137,3 +137,23 @@ docker compose start site
 - используйте HTTPS;
 - не добавляйте в клиентский JavaScript пароли и секреты;
 - назначьте срок хранения заявок и удаляйте устаревшие данные согласно политике обработки персональных данных.
+
+## Cloudflare Relay для серверов без доступа к Telegram
+
+Если VPS не подключается к `api.telegram.org`, используйте приватный Worker из файла `cloudflare-telegram-relay.js`. В Cloudflare добавьте три значения типа Secret: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` и `RELAY_SECRET`.
+
+На VPS оставьте только адрес Worker и тот же секрет связи:
+
+```dotenv
+TELEGRAM_RELAY_URL=https://your-worker.workers.dev/notify
+TELEGRAM_RELAY_SECRET=случайная_строка_из_64_символов
+```
+
+После проверки релея удалите с VPS строки `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`: они хранятся только в Cloudflare. Перезапустите службу и проверьте режим:
+
+```bash
+systemctl restart uchastniki
+curl http://127.0.0.1:3000/healthz
+```
+
+Ожидается `"telegramMode":"relay"`. Worker принимает только `POST /notify` с заголовком `Authorization: Bearer ...`; секреты нельзя добавлять в Git или клиентский JavaScript.
