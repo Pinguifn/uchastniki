@@ -35,7 +35,7 @@ const TELEGRAM_RELAY_CONFIGURED = (() => {
 const TELEGRAM_CONFIGURED = TELEGRAM_RELAY_CONFIGURED || TELEGRAM_DIRECT_CONFIGURED;
 const TELEGRAM_MODE = TELEGRAM_RELAY_CONFIGURED ? 'relay' : TELEGRAM_DIRECT_CONFIGURED ? 'direct' : 'disabled';
 
-const QUESTIONNAIRE_CSP = "default-src 'self'; script-src 'self' 'sha256-MPzOl0iuwllmXCqVr+CcDaakQedO/CjiqwhOO4t0NrA='; style-src 'self' 'sha256-OioZsI0okBQddSNeFd6uAhbw6xmaXb9I3O1ItdGx8Oo='; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+const QUESTIONNAIRE_CSP = "default-src 'self'; script-src 'self' 'sha256-MPzOl0iuwllmXCqVr+CcDaakQedO/CjiqwhOO4t0NrA='; style-src 'self' 'sha256-p7QqjGEBCfGDYT03wlwBO2/x8F330GCWQZLpMwLKTbA='; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
 mkdirSync(DATA_DIR, {recursive: true, mode: 0o750});
 const db = new DatabaseSync(join(DATA_DIR, 'applications.sqlite'));
