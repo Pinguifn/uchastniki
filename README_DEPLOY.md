@@ -92,7 +92,7 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
@@ -108,7 +108,7 @@ docker compose exec site node export-membership-applications.mjs /app/data/membe
 docker cp uchastniki-site:/app/data/membership-applications.csv ./membership-applications.csv
 ```
 
-CSV сохраняется в UTF-8 с BOM и разделителем `;`, поэтому корректно открывается в Excel.
+CSV сохраняется в UTF-8 с BOM и разделителем `;`. Значения, которые Excel может принять за формулы, автоматически нейтрализуются.
 
 ## 6. Резервное копирование
 
@@ -129,7 +129,10 @@ docker compose start site
 - регулярно обновляйте Docker-образы;
 - используйте HTTPS;
 - не добавляйте в клиентский JavaScript пароли и секреты;
-- назначьте срок хранения заявок и удаляйте устаревшие данные согласно политике обработки персональных данных.
+- заявки автоматически удаляются через `APPLICATION_RETENTION_DAYS` (по умолчанию 365 дней);
+- отправленные Telegram-уведомления удаляются через `OUTBOX_SENT_RETENTION_DAYS` (7 дней), окончательно не доставленные — через `OUTBOX_FAILED_RETENTION_DAYS` (30 дней);
+- rate limiter очищает истёкшие записи из памяти каждые 5 минут;
+- приложение игнорирует пользовательский `X-Forwarded-For` и доверяет `X-Real-IP` только от локального reverse proxy.
 
 ## Cloudflare Relay для серверов без доступа к Telegram
 
@@ -150,3 +153,22 @@ curl http://127.0.0.1:3000/healthz
 ```
 
 Ожидается `"telegramMode":"relay"`. Worker принимает только `POST /notify` с заголовком `Authorization: Bearer ...`; секреты нельзя добавлять в Git или клиентский JavaScript.
+
+
+## SEO после развёртывания
+
+1. Проверьте `https://uchastniki.site/robots.txt` и `https://uchastniki.site/sitemap.xml`.
+2. Добавьте домен в Яндекс Вебмастер и Google Search Console.
+3. Подтвердите права на домен и отправьте `https://uchastniki.site/sitemap.xml` на переобход.
+4. Убедитесь, что `https://www.uchastniki.site/` делает постоянный редирект 301 на `https://uchastniki.site/`.
+
+## Настройки хранения
+
+```dotenv
+APPLICATION_RETENTION_DAYS=365
+OUTBOX_SENT_RETENTION_DAYS=7
+OUTBOX_FAILED_RETENTION_DAYS=30
+OUTBOX_MAX_ATTEMPTS=8
+```
+
+Изменяйте сроки только после согласования с опубликованной Политикой обработки персональных данных.

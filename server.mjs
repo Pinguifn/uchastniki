@@ -4,6 +4,7 @@ import {extname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
+import {isIP} from 'node:net';
 
 const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -13,6 +14,12 @@ const ALLOWED_ORIGIN = (process.env.ALLOWED_ORIGIN || '').replace(/\/$/, '');
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_MAX = 5;
+const RATE_CLEANUP_MS = 5 * 60 * 1000;
+const OUTBOX_MAX_ATTEMPTS = Math.max(1, Number(process.env.OUTBOX_MAX_ATTEMPTS || 8));
+const OUTBOX_SENT_RETENTION_DAYS = Math.max(1, Number(process.env.OUTBOX_SENT_RETENTION_DAYS || 7));
+const OUTBOX_FAILED_RETENTION_DAYS = Math.max(1, Number(process.env.OUTBOX_FAILED_RETENTION_DAYS || 30));
+const APPLICATION_RETENTION_DAYS = Math.max(1, Number(process.env.APPLICATION_RETENTION_DAYS || 365));
+const PERSISTENT_CLEANUP_MS = 6 * 60 * 60 * 1000;
 const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const TELEGRAM_CHAT_ID = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 const TELEGRAM_API_BASE = String(process.env.TELEGRAM_API_BASE || ('https:' + '//' + 'api.telegram.org')).replace(/\/+$/, '');
@@ -68,6 +75,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_telegram_outbox_pending
     ON telegram_outbox(sent_at, next_attempt_at, created_at);
 `);
+db.prepare(`DELETE FROM telegram_outbox WHERE application_type <> 'membership'`).run();
 const insertMembershipApplication = db.prepare(`
   INSERT INTO membership_applications
   (id, created_at, full_name, phone, email, telegram, company, role, consent)
@@ -81,7 +89,7 @@ const insertTelegramOutbox = db.prepare(`
 const selectTelegramOutbox = db.prepare(`
   SELECT id, application_id, application_type, message, attempts
   FROM telegram_outbox
-  WHERE sent_at IS NULL AND next_attempt_at <= ?
+  WHERE application_type = 'membership' AND sent_at IS NULL AND next_attempt_at <= ? AND attempts < ?
   ORDER BY created_at ASC
   LIMIT 10
 `);
@@ -95,17 +103,32 @@ const markTelegramFailed = db.prepare(`
   SET attempts = ?, next_attempt_at = ?, last_error = ?
   WHERE id = ?
 `);
+const deleteSentTelegramOutbox = db.prepare(`
+  DELETE FROM telegram_outbox
+  WHERE sent_at IS NOT NULL AND sent_at < ?
+`);
+const deleteFailedTelegramOutbox = db.prepare(`
+  DELETE FROM telegram_outbox
+  WHERE sent_at IS NULL AND attempts >= ? AND created_at < ?
+`);
+const deleteExpiredMembershipApplications = db.prepare(`
+  DELETE FROM membership_applications
+  WHERE created_at < ?
+`);
 
 const staticRoutes = new Map([
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
   ['/404.html', '404.html'],
+  ['/robots.txt', 'robots.txt'],
+  ['/sitemap.xml', 'sitemap.xml'],
+  ['/og-image.png', 'og-image.png'],
   ['/soglasie-na-obrabotku-personalnyh-dannyh.html', 'soglasie-na-obrabotku-personalnyh-dannyh.html'],
   ['/politika-konfidencialnosti.html', 'politika-konfidencialnosti.html'],
   ['/dogovor-oferty.html', 'dogovor-oferty.html'],
   ['/politika-obrabotki-personalnyh-dannyh.html', 'politika-obrabotki-personalnyh-dannyh.html']
 ]);
-const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'};
+const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png'};
 const limits = new Map();
 
 function securityHeaders() {
@@ -126,16 +149,40 @@ function sendJson(res, status, payload) {
   res.end(body);
 }
 
+function normalizeIp(value) {
+  let candidate = String(value || '').trim();
+  if (candidate.startsWith('[') && candidate.includes(']')) candidate = candidate.slice(1, candidate.indexOf(']'));
+  if (candidate.startsWith('::ffff:')) candidate = candidate.slice(7);
+  return isIP(candidate) ? candidate : '';
+}
+
 function requestKey(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || req.socket.remoteAddress || 'unknown';
+  const remoteAddress = normalizeIp(req.socket.remoteAddress) || 'unknown';
+  const isLocalProxy = remoteAddress === '127.0.0.1' || remoteAddress === '::1';
+  if (isLocalProxy) {
+    const realIp = normalizeIp(req.headers['x-real-ip']);
+    if (realIp) return realIp;
+  }
+  return remoteAddress;
 }
 
 function isRateLimited(key) {
   const now = Date.now();
-  const recent = (limits.get(key) || []).filter(time => now - time < RATE_WINDOW_MS);
-  if (recent.length >= RATE_MAX) { limits.set(key, recent); return true; }
-  recent.push(now); limits.set(key, recent); return false;
+  const state = limits.get(key);
+  if (!state || state.resetAt <= now) {
+    limits.set(key, {count: 1, resetAt: now + RATE_WINDOW_MS});
+    return false;
+  }
+  if (state.count >= RATE_MAX) return true;
+  state.count += 1;
+  return false;
+}
+
+function cleanupRateLimits() {
+  const now = Date.now();
+  for (const [key, state] of limits) {
+    if (state.resetAt <= now) limits.delete(key);
+  }
 }
 
 function originIsAllowed(req) {
@@ -245,7 +292,7 @@ async function flushTelegramOutbox() {
   if (!TELEGRAM_CONFIGURED || telegramFlushRunning) return;
   telegramFlushRunning = true;
   try {
-    const pending = selectTelegramOutbox.all(new Date().toISOString());
+    const pending = selectTelegramOutbox.all(new Date().toISOString(), OUTBOX_MAX_ATTEMPTS);
     for (const item of pending) {
       try {
         await sendTelegramMessage(item.message);
@@ -260,6 +307,25 @@ async function flushTelegramOutbox() {
     }
   } finally {
     telegramFlushRunning = false;
+  }
+}
+
+function isoDaysAgo(days) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function cleanupPersistentData() {
+  const sent = deleteSentTelegramOutbox.run(isoDaysAgo(OUTBOX_SENT_RETENTION_DAYS));
+  const failed = deleteFailedTelegramOutbox.run(OUTBOX_MAX_ATTEMPTS, isoDaysAgo(OUTBOX_FAILED_RETENTION_DAYS));
+  const applications = deleteExpiredMembershipApplications.run(isoDaysAgo(APPLICATION_RETENTION_DAYS));
+  const deleted = Number(sent.changes || 0) + Number(failed.changes || 0) + Number(applications.changes || 0);
+  if (deleted > 0) {
+    console.log(JSON.stringify({
+      event: 'data_retention_cleanup',
+      sentOutboxDeleted: Number(sent.changes || 0),
+      failedOutboxDeleted: Number(failed.changes || 0),
+      applicationsDeleted: Number(applications.changes || 0)
+    }));
   }
 }
 
@@ -322,7 +388,7 @@ function serveStatic(req, res, pathname) {
   const filePath = resolve(ROOT, fileName);
   if (!filePath.startsWith(resolve(ROOT)) || !existsSync(filePath)) return false;
   const body = readFileSync(filePath);
-  const cache = fileName.endsWith('.css') || fileName.endsWith('.js') ? 'public, max-age=3600' : 'no-cache';
+  const cache = /\.(?:css|js|png)$/.test(fileName) ? 'public, max-age=86400' : 'no-cache';
   res.writeHead(200, {...securityHeaders(), 'Content-Type':mimeTypes[extname(fileName)] || 'application/octet-stream', 'Cache-Control':cache, 'Content-Length':body.length});
   if (req.method === 'HEAD') res.end(); else res.end(body);
   return true;
@@ -344,7 +410,12 @@ const server = createServer(async (req, res) => {
 });
 
 const telegramTimer = setInterval(() => void flushTelegramOutbox(), TELEGRAM_POLL_MS);
+const rateCleanupTimer = setInterval(cleanupRateLimits, RATE_CLEANUP_MS);
+const persistentCleanupTimer = setInterval(cleanupPersistentData, PERSISTENT_CLEANUP_MS);
 telegramTimer.unref();
+rateCleanupTimer.unref();
+persistentCleanupTimer.unref();
+cleanupPersistentData();
 if (TELEGRAM_CONFIGURED) {
   db.prepare(`UPDATE telegram_outbox SET next_attempt_at = ? WHERE sent_at IS NULL`).run(new Date().toISOString());
   console.log(JSON.stringify({event:'telegram_delivery_configured', mode:TELEGRAM_MODE}));
@@ -356,6 +427,8 @@ if (TELEGRAM_CONFIGURED) {
 server.listen(PORT, HOST, () => console.log('UCHASTNIKI server listening on http://' + HOST + ':' + PORT));
 function shutdown() {
   clearInterval(telegramTimer);
+  clearInterval(rateCleanupTimer);
+  clearInterval(persistentCleanupTimer);
   server.close(() => { db.close(); process.exit(0); });
   setTimeout(() => process.exit(1), 5000).unref();
 }

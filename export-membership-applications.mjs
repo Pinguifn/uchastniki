@@ -15,7 +15,11 @@ const db = new DatabaseSync(dbPath, {readOnly:true});
 const rows = db.prepare('SELECT created_at, full_name, phone, email, telegram, company, role FROM membership_applications ORDER BY created_at DESC').all();
 const columns = ['Дата','ФИО','Телефон','Email','Telegram','Компания','Роль в компании'];
 const keys = ['created_at','full_name','phone','email','telegram','company','role'];
-const escape = value => `"${String(value ?? '').replaceAll('"','""')}"`;
+const neutralizeFormula = value => {
+  const text = String(value ?? '');
+  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+};
+const escape = value => `\"${neutralizeFormula(value).replaceAll('\"','\"\"')}\"`;
 const csv = '\uFEFF' + [columns.map(escape).join(';'), ...rows.map(row => keys.map(key => escape(row[key])).join(';'))].join('\r\n');
 writeFileSync(output, csv, {encoding:'utf8', mode:0o600});
 db.close();

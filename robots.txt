@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /healthz
 
 Sitemap: https://uchastniki.site/sitemap.xml
+Host: uchastniki.site
