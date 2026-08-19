@@ -129,7 +129,18 @@ const staticRoutes = new Map([
   ['/politika-konfidencialnosti.html', 'politika-konfidencialnosti.html'],
   ['/politika-cookie.html', 'politika-cookie.html'],
   ['/dogovor-oferty.html', 'dogovor-oferty.html'],
-  ['/politika-obrabotki-personalnyh-dannyh.html', 'politika-obrabotki-personalnyh-dannyh.html']
+  ['/politika-obrabotki-personalnyh-dannyh.html', 'politika-obrabotki-personalnyh-dannyh.html'],
+  ['/seo-pages.css', 'seo-pages.css'],
+  ['/soobshchestvo-predprinimateley-perm', 'soobshchestvo-predprinimateley-perm.html'],
+  ['/biznes-klub-perm', 'biznes-klub-perm.html'],
+  ['/meropriyatiya-dlya-predprinimateley', 'meropriyatiya-dlya-predprinimateley.html'],
+  ['/rezidenty', 'rezidenty.html'],
+  ['/stati', 'stati.html'],
+  ['/kak-vybrat-soobshchestvo-predprinimateley-perm', 'kak-vybrat-soobshchestvo-predprinimateley-perm.html'],
+  ['/zachem-predprinimatelyu-delovoe-okruzhenie', 'zachem-predprinimatelyu-delovoe-okruzhenie.html'],
+  ['/gde-nayti-biznes-partnerov-v-permi', 'gde-nayti-biznes-partnerov-v-permi.html'],
+  ['/chto-takoe-biznes-klub', 'chto-takoe-biznes-klub.html'],
+  ['/netvorking-dlya-predprinimateley', 'netvorking-dlya-predprinimateley.html']
 ]);
 const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png'};
 const limits = new Map();
@@ -393,11 +404,47 @@ function serveStatic(req, res, pathname) {
   return true;
 }
 
+function sendRedirect(res, location, status = 301) {
+  res.writeHead(status, {...securityHeaders(), 'Location':location, 'Cache-Control':'public, max-age=3600'});
+  res.end();
+  return true;
+}
+
+function canonicalRedirect(req, res, pathname) {
+  const rawHost = String(req.headers.host || '').toLowerCase();
+  const hostname = rawHost.split(':')[0];
+  const remote = normalizeIp(req.socket.remoteAddress);
+  const localProxy = remote === '127.0.0.1' || remote === '::1';
+  const forwardedProto = localProxy ? String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase() : '';
+  const needsHttps = forwardedProto === 'http';
+  const needsHost = hostname === 'www.uchastniki.site';
+  if (needsHttps || needsHost) {
+    return sendRedirect(res, 'https://uchastniki.site' + pathname);
+  }
+  if (pathname === '/index.html') return sendRedirect(res, '/');
+  const seoHtml = new Map([
+    ['/soobshchestvo-predprinimateley-perm.html', '/soobshchestvo-predprinimateley-perm'],
+    ['/biznes-klub-perm.html', '/biznes-klub-perm'],
+    ['/meropriyatiya-dlya-predprinimateley.html', '/meropriyatiya-dlya-predprinimateley'],
+    ['/rezidenty.html', '/rezidenty'],
+    ['/stati.html', '/stati'],
+    ['/kak-vybrat-soobshchestvo-predprinimateley-perm.html', '/kak-vybrat-soobshchestvo-predprinimateley-perm'],
+    ['/zachem-predprinimatelyu-delovoe-okruzhenie.html', '/zachem-predprinimatelyu-delovoe-okruzhenie'],
+    ['/gde-nayti-biznes-partnerov-v-permi.html', '/gde-nayti-biznes-partnerov-v-permi'],
+    ['/chto-takoe-biznes-klub.html', '/chto-takoe-biznes-klub'],
+    ['/netvorking-dlya-predprinimateley.html', '/netvorking-dlya-predprinimateley'],
+  ]);
+  if (seoHtml.has(pathname)) return sendRedirect(res, seoHtml.get(pathname));
+  return false;
+}
+
 const server = createServer(async (req, res) => {
   req.setTimeout(12000);
   let pathname;
   try { pathname = new URL(req.url, 'http://' + (req.headers.host || 'localhost')).pathname; }
   catch { return sendJson(res, 400, {message:'Некорректный адрес.'}); }
+
+  if ((req.method === 'GET' || req.method === 'HEAD') && canonicalRedirect(req, res, pathname)) return;
 
   if (req.method === 'POST' && pathname === '/api/membership-applications') return handleMembershipApplication(req, res);
   if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED, telegramMode:TELEGRAM_MODE});
