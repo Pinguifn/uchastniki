@@ -35,7 +35,6 @@ const TELEGRAM_RELAY_CONFIGURED = (() => {
 const TELEGRAM_CONFIGURED = TELEGRAM_RELAY_CONFIGURED || TELEGRAM_DIRECT_CONFIGURED;
 const TELEGRAM_MODE = TELEGRAM_RELAY_CONFIGURED ? 'relay' : TELEGRAM_DIRECT_CONFIGURED ? 'direct' : 'disabled';
 
-const QUESTIONNAIRE_CSP = "default-src 'self'; script-src 'self' 'sha256-MPzOl0iuwllmXCqVr+CcDaakQedO/CjiqwhOO4t0NrA='; style-src 'self' 'sha256-p7QqjGEBCfGDYT03wlwBO2/x8F330GCWQZLpMwLKTbA='; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
 mkdirSync(DATA_DIR, {recursive: true, mode: 0o750});
 const db = new DatabaseSync(join(DATA_DIR, 'applications.sqlite'));
@@ -43,18 +42,6 @@ db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA synchronous = NORMAL;
   PRAGMA busy_timeout = 5000;
-  CREATE TABLE IF NOT EXISTS applications (
-    id TEXT PRIMARY KEY,
-    created_at TEXT NOT NULL,
-    full_name TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    email TEXT NOT NULL,
-    telegram TEXT NOT NULL,
-    company_role TEXT NOT NULL,
-    participation TEXT NOT NULL,
-    consent INTEGER NOT NULL CHECK (consent = 1)
-  );
-  CREATE INDEX IF NOT EXISTS idx_applications_created_at ON applications(created_at DESC);
   CREATE TABLE IF NOT EXISTS membership_applications (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -70,7 +57,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS telegram_outbox (
     id TEXT PRIMARY KEY,
     application_id TEXT NOT NULL,
-    application_type TEXT NOT NULL CHECK (application_type IN ('event','membership')),
+    application_type TEXT NOT NULL CHECK (application_type = 'membership'),
     message TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt_at TEXT NOT NULL,
@@ -80,11 +67,6 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_telegram_outbox_pending
     ON telegram_outbox(sent_at, next_attempt_at, created_at);
-`);
-const insertApplication = db.prepare(`
-  INSERT INTO applications
-  (id, created_at, full_name, phone, email, telegram, company_role, participation, consent)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
 `);
 const insertMembershipApplication = db.prepare(`
   INSERT INTO membership_applications
@@ -117,8 +99,6 @@ const markTelegramFailed = db.prepare(`
 const staticRoutes = new Map([
   ['/', 'index.html'],
   ['/index.html', 'index.html'],
-  ['/anketa', 'anketa.html'],
-  ['/anketa.html', 'anketa.html'],
   ['/404.html', '404.html'],
   ['/soglasie-na-obrabotku-personalnyh-dannyh.html', 'soglasie-na-obrabotku-personalnyh-dannyh.html'],
   ['/politika-konfidencialnosti.html', 'politika-konfidencialnosti.html'],
@@ -128,11 +108,8 @@ const staticRoutes = new Map([
 const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'};
 const limits = new Map();
 
-function securityHeaders(pathname) {
-  const strictQuestionnaire = pathname === '/anketa' || pathname === '/anketa.html';
-  const csp = strictQuestionnaire
-    ? QUESTIONNAIRE_CSP
-    : "default-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+function securityHeaders() {
+  const csp = "default-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
   return {
     'Content-Security-Policy': csp,
     'X-Content-Type-Options': 'nosniff',
@@ -145,7 +122,7 @@ function securityHeaders(pathname) {
 
 function sendJson(res, status, payload) {
   const body = JSON.stringify(payload);
-  res.writeHead(status, {...securityHeaders('/api/applications'), 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', 'Content-Length':Buffer.byteLength(body)});
+  res.writeHead(status, {...securityHeaders(), 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', 'Content-Length':Buffer.byteLength(body)});
   res.end(body);
 }
 
@@ -204,35 +181,23 @@ function formatTelegramDate(isoDate) {
   }
 }
 
-function buildTelegramMessage(type, values, createdAt) {
-  const common = [
-    type === 'event'
-      ? '🎾 <b>Новая регистрация на открытие</b>'
-      : '🤝 <b>Новая заявка «Стать участником»</b>',
+function buildTelegramMessage(values, createdAt) {
+  return [
+    '🤝 <b>Новая заявка «Стать участником»</b>',
     '',
     `<b>Дата:</b> ${escapeTelegramHtml(formatTelegramDate(createdAt))}`,
     `<b>ФИО:</b> ${escapeTelegramHtml(values.fullName)}`,
     `<b>Телефон:</b> <code>${escapeTelegramHtml(values.phone)}</code>`,
     `<b>Email:</b> ${escapeTelegramHtml(values.email)}`,
-    `<b>Telegram:</b> ${escapeTelegramHtml(values.telegram)}`
-  ];
-  if (type === 'event') {
-    common.push(
-      `<b>Компания и роль:</b> ${escapeTelegramHtml(values.companyRole)}`,
-      `<b>Участие в паделе:</b> ${escapeTelegramHtml(values.participation)}`
-    );
-  } else {
-    common.push(
-      `<b>Компания:</b> ${escapeTelegramHtml(values.company)}`,
-      `<b>Роль:</b> ${escapeTelegramHtml(values.role)}`
-    );
-  }
-  return common.join('\n').slice(0, 4096);
+    `<b>Telegram:</b> ${escapeTelegramHtml(values.telegram)}`,
+    `<b>Компания:</b> ${escapeTelegramHtml(values.company)}`,
+    `<b>Роль:</b> ${escapeTelegramHtml(values.role)}`
+  ].join('\n').slice(0, 4096);
 }
 
-function queueTelegramNotification(type, applicationId, values, createdAt) {
-  const message = buildTelegramMessage(type, values, createdAt);
-  insertTelegramOutbox.run(randomUUID(), applicationId, type, message, createdAt, createdAt);
+function queueTelegramNotification(applicationId, values, createdAt) {
+  const message = buildTelegramMessage(values, createdAt);
+  insertTelegramOutbox.run(randomUUID(), applicationId, 'membership', message, createdAt, createdAt);
 }
 
 function nextTelegramAttempt(attempts) {
@@ -298,60 +263,6 @@ async function flushTelegramOutbox() {
   }
 }
 
-function validate(input) {
-  const values = {
-    fullName: clean(input.fullName, 120),
-    phone: clean(input.phone, 24),
-    email: clean(input.email, 254).toLowerCase(),
-    telegram: clean(input.telegram, 64),
-    companyRole: clean(input.companyRole, 200),
-    participation: clean(input.participation, 40),
-    consent: input.consent === true
-  };
-  const errors = {};
-  if (values.fullName.length < 3) errors.fullName = 'Укажите ФИО.';
-  const digits = values.phone.replace(/\D/g, '');
-  if (digits.length < 10 || digits.length > 15) errors.phone = 'Проверьте номер телефона.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.email = 'Проверьте Email.';
-  if (!/^(@[A-Za-z0-9_]{5,32}|https?:\/\/(t\.me|telegram\.me)\/[A-Za-z0-9_]{5,32})$/i.test(values.telegram)) errors.telegram = 'Укажите @username или ссылку Telegram.';
-  if (values.companyRole.length < 2) errors.companyRole = 'Укажите компанию и роль.';
-  const allowed = new Set(['Турнир','Мастер-класс','Оба формата','Не буду участвовать']);
-  if (!allowed.has(values.participation)) errors.participation = 'Выберите вариант участия.';
-  if (!values.consent) errors.consent = 'Необходимо согласие на обработку данных.';
-  return {values, errors};
-}
-
-async function handleApplication(req, res) {
-  if (!originIsAllowed(req)) return sendJson(res, 403, {message:'Запрос отклонён.'});
-  if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) return sendJson(res, 415, {message:'Ожидается JSON.'});
-  const key = requestKey(req);
-  if (isRateLimited(key)) return sendJson(res, 429, {message:'Слишком много попыток. Попробуйте через 10 минут.'});
-  try {
-    const input = await readJson(req);
-    if (clean(input.website, 200)) return sendJson(res, 200, {ok:true});
-    const {values, errors} = validate(input);
-    if (Object.keys(errors).length) return sendJson(res, 422, {message:'Проверьте заполнение анкеты.', fields:errors});
-    const id = randomUUID();
-    const createdAt = new Date().toISOString();
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      insertApplication.run(id, createdAt, values.fullName, values.phone, values.email, values.telegram, values.companyRole, values.participation);
-      queueTelegramNotification('event', id, values, createdAt);
-      db.exec('COMMIT');
-    } catch (error) {
-      try { db.exec('ROLLBACK'); } catch {}
-      throw error;
-    }
-    console.log(JSON.stringify({event:'application_created', id, at:createdAt}));
-    void flushTelegramOutbox();
-    return sendJson(res, 201, {ok:true, id});
-  } catch (error) {
-    const status = error.status || 500;
-    if (status >= 500) console.error(error);
-    return sendJson(res, status, {message:status === 413 ? 'Анкета слишком большая.' : status === 400 ? 'Некорректный запрос.' : 'Сервер временно недоступен.'});
-  }
-}
-
 function validateMembership(input) {
   const values = {
     fullName: clean(input.fullName, 120),
@@ -389,7 +300,7 @@ async function handleMembershipApplication(req, res) {
     db.exec('BEGIN IMMEDIATE');
     try {
       insertMembershipApplication.run(id, createdAt, values.fullName, values.phone, values.email, values.telegram, values.company, values.role);
-      queueTelegramNotification('membership', id, values, createdAt);
+      queueTelegramNotification(id, values, createdAt);
       db.exec('COMMIT');
     } catch (error) {
       try { db.exec('ROLLBACK'); } catch {}
@@ -412,7 +323,7 @@ function serveStatic(req, res, pathname) {
   if (!filePath.startsWith(resolve(ROOT)) || !existsSync(filePath)) return false;
   const body = readFileSync(filePath);
   const cache = fileName.endsWith('.css') || fileName.endsWith('.js') ? 'public, max-age=3600' : 'no-cache';
-  res.writeHead(200, {...securityHeaders(pathname), 'Content-Type':mimeTypes[extname(fileName)] || 'application/octet-stream', 'Cache-Control':cache, 'Content-Length':body.length});
+  res.writeHead(200, {...securityHeaders(), 'Content-Type':mimeTypes[extname(fileName)] || 'application/octet-stream', 'Cache-Control':cache, 'Content-Length':body.length});
   if (req.method === 'HEAD') res.end(); else res.end(body);
   return true;
 }
@@ -423,13 +334,12 @@ const server = createServer(async (req, res) => {
   try { pathname = new URL(req.url, 'http://' + (req.headers.host || 'localhost')).pathname; }
   catch { return sendJson(res, 400, {message:'Некорректный адрес.'}); }
 
-  if (req.method === 'POST' && pathname === '/api/applications') return handleApplication(req, res);
   if (req.method === 'POST' && pathname === '/api/membership-applications') return handleMembershipApplication(req, res);
   if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED, telegramMode:TELEGRAM_MODE});
   if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic(req, res, pathname)) return;
 
   const fallback = readFileSync(join(ROOT, '404.html'));
-  res.writeHead(404, {...securityHeaders('/404.html'), 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-cache', 'Content-Length':fallback.length});
+  res.writeHead(404, {...securityHeaders(), 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-cache', 'Content-Length':fallback.length});
   res.end(fallback);
 });
 

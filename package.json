@@ -6,7 +6,6 @@
   "description": "Сайт сообщества УЧАСТНИКИ с анкетой и SQLite-базой",
   "scripts": {
     "start": "node server.mjs",
-    "export": "node export-applications.mjs",
     "export:membership": "node export-membership-applications.mjs"
   },
   "engines": {
