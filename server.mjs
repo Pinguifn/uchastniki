@@ -123,6 +123,8 @@ const staticRoutes = new Map([
   ['/robots.txt', 'robots.txt'],
   ['/sitemap.xml', 'sitemap.xml'],
   ['/og-image.png', 'og-image.png'],
+  ['/cookie-notice.css', 'cookie-notice.css'],
+  ['/cookie-notice.js', 'cookie-notice.js'],
   ['/soglasie-na-obrabotku-personalnyh-dannyh.html', 'soglasie-na-obrabotku-personalnyh-dannyh.html'],
   ['/politika-konfidencialnosti.html', 'politika-konfidencialnosti.html'],
   ['/dogovor-oferty.html', 'dogovor-oferty.html'],
