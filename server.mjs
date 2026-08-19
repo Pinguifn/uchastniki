@@ -127,6 +127,7 @@ const staticRoutes = new Map([
   ['/cookie-notice.js', 'cookie-notice.js'],
   ['/soglasie-na-obrabotku-personalnyh-dannyh.html', 'soglasie-na-obrabotku-personalnyh-dannyh.html'],
   ['/politika-konfidencialnosti.html', 'politika-konfidencialnosti.html'],
+  ['/politika-cookie.html', 'politika-cookie.html'],
   ['/dogovor-oferty.html', 'dogovor-oferty.html'],
   ['/politika-obrabotki-personalnyh-dannyh.html', 'politika-obrabotki-personalnyh-dannyh.html']
 ]);
@@ -230,17 +231,13 @@ function formatTelegramDate(isoDate) {
   }
 }
 
-function buildTelegramMessage(values, createdAt) {
+function buildTelegramMessage(_values, createdAt) {
   return [
-    '🤝 <b>Новая заявка «Стать участником»</b>',
+    '🤝 <b>Поступила новая заявка «Стать участником»</b>',
     '',
     `<b>Дата:</b> ${escapeTelegramHtml(formatTelegramDate(createdAt))}`,
-    `<b>ФИО:</b> ${escapeTelegramHtml(values.fullName)}`,
-    `<b>Телефон:</b> <code>${escapeTelegramHtml(values.phone)}</code>`,
-    `<b>Email:</b> ${escapeTelegramHtml(values.email)}`,
-    `<b>Telegram:</b> ${escapeTelegramHtml(values.telegram)}`,
-    `<b>Компания:</b> ${escapeTelegramHtml(values.company)}`,
-    `<b>Роль:</b> ${escapeTelegramHtml(values.role)}`
+    'Персональные данные сохранены только в базе на сервере и не переданы в это уведомление.',
+    'Для просмотра выполните защищённый экспорт заявок на сервере.'
   ].join('\n').slice(0, 4096);
 }
 

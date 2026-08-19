@@ -2674,6 +2674,7 @@ body.mbm-lock{overflow:hidden}
 .mbm-consent{display:flex;align-items:flex-start;gap:.7rem;margin:.1rem 0;color:var(--mbm-muted);font-size:.86rem;line-height:1.45}
 .mbm-consent input{flex:0 0 auto;width:1.15rem;height:1.15rem;margin:.15rem 0 0;accent-color:#8b5cf6}
 .mbm-consent a{color:#ddd6fe;text-decoration:underline;text-underline-offset:.18em}
+.mbm-consent-note{margin:.35rem 0 0 1.85rem;color:var(--mbm-muted);font-size:.78rem;line-height:1.4}.mbm-consent-note a{color:#ddd6fe;text-decoration:underline;text-underline-offset:.18em}
 .mbm-honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
 .mbm-actions{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
 .mbm-submit{min-height:3.35rem;padding:.9rem 1.35rem;border:1px solid rgba(221,214,254,.48);border-radius:.9rem;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;font:inherit;font-size:.92rem;font-weight:800;letter-spacing:.015em;text-transform:uppercase;cursor:pointer;box-shadow:0 1rem 2.5rem -1.1rem rgba(124,58,237,.78),inset 0 1px 0 rgba(255,255,255,.2);transition:transform .18s ease,filter .18s ease}
@@ -3299,7 +3300,7 @@ body.mbm-lock{overflow:hidden}
         <a href="soglasie-na-obrabotku-personalnyh-dannyh.html">Согласие на обработку персональных данных</a>
         <a href="dogovor-oferty.html">Договор оферты</a>
         <a href="politika-konfidencialnosti.html">Политика конфиденциальности</a>
-        <button type="button" class="foot-cookie-button" data-cookie-notice-open>О cookie</button>
+        <a href="politika-cookie.html">Политика использования cookie</a>
       </nav>
     </div>
   </div>
@@ -4256,7 +4257,8 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
         <div class="mbm-field"><label for="membershipRole"><span class="mbm-required" aria-hidden="true">*</span> Роль в компании</label><input id="membershipRole" name="role" autocomplete="organization-title" maxlength="120" required></div>
       </div>
       <div class="mbm-honeypot" aria-hidden="true"><label for="membershipWebsite">Ваш сайт</label><input id="membershipWebsite" name="website" tabindex="-1" autocomplete="off"></div>
-      <label class="mbm-consent"><input type="checkbox" name="consent" required><span>Я соглашаюсь на <a href="soglasie-na-obrabotku-personalnyh-dannyh.html" target="_blank" rel="noopener">обработку персональных данных</a> и принимаю <a href="politika-konfidencialnosti.html" target="_blank" rel="noopener">политику конфиденциальности</a>.</span></label>
+      <label class="mbm-consent"><input type="checkbox" name="consent" required><span>Даю <a href="soglasie-na-obrabotku-personalnyh-dannyh.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a>.</span></label>
+      <p class="mbm-consent-note">Порядок обработки описан в <a href="politika-obrabotki-personalnyh-dannyh.html" target="_blank" rel="noopener">Политике обработки персональных данных</a>.</p>
       <div class="mbm-actions"><button class="mbm-submit" id="membershipSubmit" type="submit">Отправить заявку</button><p class="mbm-status" id="membershipStatus" role="status" aria-live="polite"></p></div>
     </form>
     <div class="mbm-success" id="membershipSuccess" hidden>

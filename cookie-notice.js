@@ -2,28 +2,27 @@
   'use strict';
 
   const STORAGE_KEY = 'uch_cookie_notice_v1';
-  const NOTICE_VERSION = '2026-08-19';
+  const NOTICE_VERSION = '2026-08-19-v2';
   const RETENTION_MS = 180 * 24 * 60 * 60 * 1000;
 
-  function readAcknowledgement() {
+  function hasAccepted() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!saved || saved.version !== NOTICE_VERSION) return false;
-      return Number(saved.expiresAt) > Date.now();
+      return Boolean(saved && saved.version === NOTICE_VERSION && Number(saved.expiresAt) > Date.now());
     } catch {
       return false;
     }
   }
 
-  function saveAcknowledgement() {
+  function saveAcceptance() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         version: NOTICE_VERSION,
-        acknowledgedAt: new Date().toISOString(),
+        acceptedAt: new Date().toISOString(),
         expiresAt: Date.now() + RETENTION_MS
       }));
     } catch {
-      // Если локальное хранилище недоступно, уведомление появится при следующем посещении.
+      // Если localStorage недоступен, уведомление появится при следующем посещении.
     }
   }
 
@@ -39,13 +38,13 @@
     notice.innerHTML = `
       <div class="cookie-notice__inner">
         <div class="cookie-notice__copy">
-          <h2 class="cookie-notice__title" id="cookieNoticeTitle">О необходимых технологиях</h2>
+          <h2 class="cookie-notice__title" id="cookieNoticeTitle">Файлы cookie</h2>
           <p class="cookie-notice__text" id="cookieNoticeText">
-            Сайт использует только необходимые технологии браузера для корректной работы и запоминания вашего выбора. Аналитические и рекламные cookie не устанавливаются. Подробнее — в <a href="/politika-konfidencialnosti.html#cookies">Политике конфиденциальности</a>.
+            Мы используем только необходимые технологии браузера, чтобы сайт работал корректно и запоминал ваш выбор. Аналитические и рекламные cookie не используются. <a href="/politika-cookie.html">Подробнее</a>
           </p>
         </div>
         <div class="cookie-notice__actions">
-          <button class="cookie-notice__accept" type="button" data-cookie-notice-accept>Понятно</button>
+          <button class="cookie-notice__accept" type="button" data-cookie-notice-accept>Принять</button>
         </div>
       </div>
       <button class="cookie-notice__close" type="button" aria-label="Закрыть уведомление" data-cookie-notice-accept>×</button>`;
@@ -55,34 +54,24 @@
 
   function init() {
     const notice = buildNotice();
-    const acceptButtons = notice.querySelectorAll('[data-cookie-notice-accept]');
-    const openButtons = document.querySelectorAll('[data-cookie-notice-open]');
-
+    const close = () => {
+      saveAcceptance();
+      notice.hidden = true;
+      window.dispatchEvent(new CustomEvent('uch:cookie-notice-accepted', {detail: {version: NOTICE_VERSION}}));
+    };
     const open = () => {
       notice.hidden = false;
       requestAnimationFrame(() => notice.querySelector('[data-cookie-notice-accept]')?.focus({preventScroll: true}));
     };
 
-    const close = () => {
-      saveAcknowledgement();
-      notice.hidden = true;
-      window.dispatchEvent(new CustomEvent('uch:cookie-notice-acknowledged', {
-        detail: {version: NOTICE_VERSION}
-      }));
-    };
-
-    acceptButtons.forEach(button => button.addEventListener('click', close));
-    openButtons.forEach(button => button.addEventListener('click', open));
+    notice.querySelectorAll('[data-cookie-notice-accept]').forEach(button => button.addEventListener('click', close));
+    document.querySelectorAll('[data-cookie-notice-open]').forEach(button => button.addEventListener('click', open));
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape' && !notice.hidden) close();
     });
-
-    if (!readAcknowledgement()) open();
+    if (!hasAccepted()) open();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, {once: true});
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once: true});
+  else init();
 })();
