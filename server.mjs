@@ -142,7 +142,7 @@ const staticRoutes = new Map([
   ['/chto-takoe-biznes-klub', 'chto-takoe-biznes-klub.html'],
   ['/netvorking-dlya-predprinimateley', 'netvorking-dlya-predprinimateley.html']
 ]);
-const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png'};
+const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.jpeg':'image/jpeg','.mp4':'video/mp4'};
 const limits = new Map();
 
 function securityHeaders() {
