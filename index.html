@@ -3075,6 +3075,21 @@ body.mbm-lock{overflow:hidden}
   #formats .circle-card-list-two-cols{column-gap:.45rem!important;}
 }
 </style>
+
+<style id="founder-photo-zoom-v33-style">
+/* Crop part of the empty background while keeping the founder centered. */
+.founder-photo .ph img{
+  transform:translateY(-10%) scale(1.28)!important;
+  transform-origin:50% 58%!important;
+}
+.founder-photo:hover .ph img{
+  transform:translateY(-10%) scale(1.34)!important;
+}
+@media(max-width:900px){
+  .founder-photo .ph img{transform:translateY(-10%) scale(1.18)!important;transform-origin:50% 57%!important;}
+  .founder-photo:hover .ph img{transform:translateY(-10%) scale(1.23)!important;}
+}
+</style>
 </head>
 <body>
 <div class="sec-bg site-bg" aria-hidden="true"><span class="sec-glow sg1"></span><span class="sec-glow sg2"></span><span class="sec-glow sg3"></span><div class="sec-particles"></div></div>
@@ -3467,8 +3482,8 @@ body.mbm-lock{overflow:hidden}
         </article>
         <article class="circle-card">
           <div class="circle-card-head"><div class="circle-card-step">06 · БИТВА КРУГОВ</div><h4>ЧТО? ГДЕ? КОГДА?</h4></div>
-          <p>Все Круги встречаются на финальной игре.<br>К заработанным за 90 дней баллам добавляются баллы за <strong>«Что? Где? Когда?»</strong>.</p>
-          <p class="circle-card-result"><strong>Побеждает Круг с лучшим общим результатом.</strong></p>
+          <p>Все Круги встречаются на большой конференции.</p>
+          <p class="circle-card-result"><strong>Побеждает Круг с лучшим общим результатом и получает вознаграждения от партнёров сообщества.</strong></p>
         </article>
       </div>
     </section>
