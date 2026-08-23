@@ -3099,15 +3099,8 @@ body.mbm-lock{overflow:hidden}
 }
 #formats .fmt-card-goto .fc-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
 #formats .fmt-card-goto .fc-ico{margin-bottom:0!important;}
-#formats .fmt-card-goto .fc-format-tag{
-  display:inline-flex;align-items:center;min-height:1.65rem;padding:.3rem .58rem;
-  border:1px solid rgba(196,181,253,.35);border-radius:999px;
-  color:#ddd6fe;background:rgba(124,58,237,.16);
-  font-size:clamp(.58rem,.7vw,.68rem);font-weight:800;line-height:1;letter-spacing:.1em;white-space:nowrap;
-}
 #formats .fmt-card-goto.is-active,#formats .fmt-card-goto.is-spotlight{border-color:rgba(196,181,253,.68)!important;box-shadow:0 1.6rem 4rem -2rem rgba(124,58,237,.9),inset 0 1px rgba(255,255,255,.08);}
 @media(max-width:640px){
-  #formats .fmt-card-goto .fc-format-tag{font-size:.58rem;padding:.28rem .48rem;}
 }
 </style>
 
@@ -3128,6 +3121,15 @@ body.mbm-lock{overflow:hidden}
 }
 @media(max-width:640px){
   #formats .fmt-card-goto p{font-size:.72rem!important;line-height:1.32!important;}
+}
+</style>
+
+<style id="mobile-logo-smoothness-v38-style">
+.logo-marquee-row,.logo-marquee-track{transform:translateZ(0);backface-visibility:hidden;}
+.business-logo-card{will-change:transform;backface-visibility:hidden;contain:layout paint style;}
+@media(max-width:780px){
+  .business-logos-viewport{transform:translateZ(0);backface-visibility:hidden;}
+  .business-logo-card img{transform:translateZ(0);backface-visibility:hidden;}
 }
 </style>
 </head>
@@ -3572,7 +3574,7 @@ body.mbm-lock{overflow:hidden}
             <article class="fmt-card fmt-card-goto">
               <div class="fc-head">
                 <span class="fc-ico"><svg class="ic"><use href="#i-home"/></svg></span>
-                <span class="fc-format-tag">БИЗНЕС ИЗНУТРИ</span>
+                
               </div>
               <h4>GO TO Business</h4>
               <p>Приходим в гости к участникам, погружаемся в их бизнес, создаём живой обзор и рассказываем о проекте в социальных сетях сообщества.</p>
@@ -5015,6 +5017,21 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
     if (!length || !track) return;
     let index = 0;
     let pointerStart = null;
+    let autoplayTimer = 0;
+    let autoplayPaused = false;
+    const autoplayDelay = 7000;
+    const clearAutoplay = () => {
+      if (autoplayTimer) window.clearTimeout(autoplayTimer);
+      autoplayTimer = 0;
+    };
+    const scheduleAutoplay = () => {
+      clearAutoplay();
+      if (length < 2 || autoplayPaused || document.hidden) return;
+      autoplayTimer = window.setTimeout(() => {
+        autoplayTimer = 0;
+        if (!autoplayPaused && !document.hidden) goTo(index + 1);
+      }, autoplayDelay);
+    };
 
     const stop = (card, reset = true) => {
       const video = card && card.querySelector('video');
@@ -5035,6 +5052,7 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
       try {
         await video.play();
         card.classList.add('is-playing');
+        clearAutoplay();
       } catch (_) {
         card.classList.add('has-error');
       }
@@ -5094,6 +5112,7 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
       next.hidden = single;
       dotsRoot.hidden = single;
       requestAnimationFrame(syncMediaFooter);
+      scheduleAutoplay();
     };
 
     function goTo(target) {
@@ -5103,6 +5122,25 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
 
     prev.addEventListener('click', () => goTo(index - 1));
     next.addEventListener('click', () => goTo(index + 1));
+    root.addEventListener('pointerenter', (event) => {
+      if (event.pointerType !== 'mouse') return;
+      autoplayPaused = true;
+      clearAutoplay();
+    });
+    root.addEventListener('pointerleave', (event) => {
+      if (event.pointerType !== 'mouse') return;
+      autoplayPaused = false;
+      scheduleAutoplay();
+    });
+    root.addEventListener('focusin', () => {
+      autoplayPaused = true;
+      clearAutoplay();
+    });
+    root.addEventListener('focusout', (event) => {
+      if (event.relatedTarget && root.contains(event.relatedTarget)) return;
+      autoplayPaused = false;
+      scheduleAutoplay();
+    });
     root.addEventListener('keydown', (event) => {
       if (event.key === 'ArrowLeft') goTo(index - 1);
       if (event.key === 'ArrowRight') goTo(index + 1);
@@ -5131,12 +5169,14 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
       });
       card.addEventListener('click', () => {
         if (canHover.matches && !reduceMotion.matches) return;
-        card.classList.contains('is-playing') ? stop(card) : play(card);
+        if (card.classList.contains('is-playing')) { stop(card); scheduleAutoplay(); }
+        else play(card);
       });
       card.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        card.classList.contains('is-playing') ? stop(card) : play(card);
+        if (card.classList.contains('is-playing')) { stop(card); scheduleAutoplay(); }
+        else play(card);
       });
     });
 
@@ -5144,7 +5184,10 @@ fitOrbit();render();start();if(document.fonts&&document.fonts.ready){document.fo
       entries.forEach((entry) => { if (!entry.isIntersecting) stop(entry.target, false); });
     }, { threshold: .12 });
     cards.forEach((card) => observer.observe(card));
-    document.addEventListener('visibilitychange', () => { if (document.hidden) stopAll(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { stopAll(); clearAutoplay(); }
+      else scheduleAutoplay();
+    });
     window.addEventListener('resize', syncMediaFooter, { passive: true });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncMediaFooter);
     render();
