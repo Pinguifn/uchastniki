@@ -123,6 +123,11 @@ const staticRoutes = new Map([
   ['/robots.txt', 'robots.txt'],
   ['/sitemap.xml', 'sitemap.xml'],
   ['/og-image.png', 'og-image.png'],
+  ['/favicon.ico', 'favicon.ico'],
+  ['/favicon-16x16.png', 'favicon-16x16.png'],
+  ['/favicon-32x32.png', 'favicon-32x32.png'],
+  ['/favicon-120x120.png', 'favicon-120x120.png'],
+  ['/apple-touch-icon.png', 'apple-touch-icon.png'],
   ['/cookie-notice.css', 'cookie-notice.css'],
   ['/cookie-notice.js', 'cookie-notice.js'],
   ['/soglasie-na-obrabotku-personalnyh-dannyh.html', 'soglasie-na-obrabotku-personalnyh-dannyh.html'],
@@ -151,7 +156,7 @@ function isRemovedPath(pathname) {
   if (removedPaths.has(pathname)) return true;
   return removedPaths.has(pathname.replace(/\.html$/, ''));
 }
-const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.jpeg':'image/jpeg','.mp4':'video/mp4'};
+const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png','.ico':'image/x-icon','.svg':'image/svg+xml','.webp':'image/webp','.jpg':'image/jpeg','.jpeg':'image/jpeg','.mp4':'video/mp4'};
 const limits = new Map();
 
 function securityHeaders() {
@@ -407,7 +412,7 @@ function serveStatic(req, res, pathname) {
   const filePath = resolve(ROOT, fileName);
   if (!filePath.startsWith(resolve(ROOT)) || !existsSync(filePath)) return false;
   const body = readFileSync(filePath);
-  const cache = /\.(?:css|js|png)$/.test(fileName) ? 'public, max-age=86400' : 'no-cache';
+  const cache = /\.(?:css|js|png|ico)$/.test(fileName) ? 'public, max-age=86400' : 'no-cache';
   res.writeHead(200, {...securityHeaders(), 'Content-Type':mimeTypes[extname(fileName)] || 'application/octet-stream', 'Cache-Control':cache, 'Content-Length':body.length});
   if (req.method === 'HEAD') res.end(); else res.end(body);
   return true;
