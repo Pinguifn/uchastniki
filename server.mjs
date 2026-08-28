@@ -123,11 +123,6 @@ const staticRoutes = new Map([
   ['/robots.txt', 'robots.txt'],
   ['/sitemap.xml', 'sitemap.xml'],
   ['/og-image.png', 'og-image.png'],
-  ['/favicon.ico', 'favicon.ico'],
-  ['/favicon-16x16.png', 'favicon-16x16.png'],
-  ['/favicon-32x32.png', 'favicon-32x32.png'],
-  ['/favicon-120x120.png', 'favicon-120x120.png'],
-  ['/apple-touch-icon.png', 'apple-touch-icon.png'],
   ['/cookie-notice.css', 'cookie-notice.css'],
   ['/cookie-notice.js', 'cookie-notice.js'],
   ['/soglasie-na-obrabotku-personalnyh-dannyh.html', 'soglasie-na-obrabotku-personalnyh-dannyh.html'],
@@ -156,11 +151,11 @@ function isRemovedPath(pathname) {
   if (removedPaths.has(pathname)) return true;
   return removedPaths.has(pathname.replace(/\.html$/, ''));
 }
-const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png','.ico':'image/x-icon','.svg':'image/svg+xml','.webp':'image/webp','.jpg':'image/jpeg','.jpeg':'image/jpeg','.mp4':'video/mp4'};
+const mimeTypes = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.txt':'text/plain; charset=utf-8','.xml':'application/xml; charset=utf-8','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.jpeg':'image/jpeg','.mp4':'video/mp4','.woff2':'font/woff2','.woff':'font/woff','.ttf':'font/ttf'};
 const limits = new Map();
 
 function securityHeaders() {
-  const csp = "default-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+  const csp = "default-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
   return {
     'Content-Security-Policy': csp,
     'X-Content-Type-Options': 'nosniff',
@@ -406,13 +401,28 @@ async function handleMembershipApplication(req, res) {
   }
 }
 
+// Локальные шрифты (вместо Google Fonts). Имена файлов зависят от подмножеств
+// (latin, latin-ext, vietnamese), поэтому вместо списка маршрутов — строгая проверка имени.
+function serveFont(req, res, pathname) {
+  if (!pathname.startsWith('/fonts/')) return false;
+  const name = pathname.slice('/fonts/'.length);
+  if (!/^[A-Za-z0-9._-]+\.(?:woff2|woff|css)$/.test(name)) return false;
+  const fontDir = resolve(ROOT, 'fonts');
+  const filePath = resolve(fontDir, name);
+  if (!filePath.startsWith(fontDir + '/') || !existsSync(filePath)) return false;
+  const body = readFileSync(filePath);
+  res.writeHead(200, {...securityHeaders(), 'Content-Type':mimeTypes[extname(name)] || 'application/octet-stream', 'Cache-Control':'public, max-age=31536000, immutable', 'Content-Length':body.length});
+  if (req.method === 'HEAD') res.end(); else res.end(body);
+  return true;
+}
+
 function serveStatic(req, res, pathname) {
   const fileName = staticRoutes.get(pathname);
   if (!fileName) return false;
   const filePath = resolve(ROOT, fileName);
   if (!filePath.startsWith(resolve(ROOT)) || !existsSync(filePath)) return false;
   const body = readFileSync(filePath);
-  const cache = /\.(?:css|js|png|ico)$/.test(fileName) ? 'public, max-age=86400' : 'no-cache';
+  const cache = /\.(?:css|js|png)$/.test(fileName) ? 'public, max-age=86400' : 'no-cache';
   res.writeHead(200, {...securityHeaders(), 'Content-Type':mimeTypes[extname(fileName)] || 'application/octet-stream', 'Cache-Control':cache, 'Content-Length':body.length});
   if (req.method === 'HEAD') res.end(); else res.end(body);
   return true;
@@ -458,6 +468,7 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'POST' && pathname === '/api/membership-applications') return handleMembershipApplication(req, res);
   if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED, telegramMode:TELEGRAM_MODE});
+  if ((req.method === 'GET' || req.method === 'HEAD') && serveFont(req, res, pathname)) return;
   if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic(req, res, pathname)) return;
 
   const fallback = readFileSync(join(ROOT, '404.html'));
