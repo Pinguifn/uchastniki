@@ -25,6 +25,8 @@ const TELEGRAM_CHAT_ID = String(process.env.TELEGRAM_CHAT_ID || '').trim();
 const TELEGRAM_API_BASE = String(process.env.TELEGRAM_API_BASE || ('https:' + '//' + 'api.telegram.org')).replace(/\/+$/, '');
 const TELEGRAM_RELAY_URL = String(process.env.TELEGRAM_RELAY_URL || '').trim().replace(/\/+$/, '');
 const TELEGRAM_RELAY_SECRET = String(process.env.TELEGRAM_RELAY_SECRET || '').trim();
+const TELEGRAM_INCLUDE_PERSONAL_DATA = process.env.TELEGRAM_INCLUDE_PERSONAL_DATA === 'true';
+const CONSENT_VERSION = '2026-09-24';
 const TELEGRAM_TIME_ZONE = String(process.env.TELEGRAM_TIME_ZONE || 'Asia/Yekaterinburg').trim();
 const telegramPollInput = Number(process.env.TELEGRAM_POLL_MS || 15000);
 const TELEGRAM_POLL_MS = Number.isFinite(telegramPollInput) ? Math.max(1000, telegramPollInput) : 15000;
@@ -58,7 +60,8 @@ db.exec(`
     telegram TEXT NOT NULL,
     company TEXT NOT NULL,
     role TEXT NOT NULL,
-    consent INTEGER NOT NULL CHECK (consent = 1)
+    consent INTEGER NOT NULL CHECK (consent = 1),
+    consent_version TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_membership_applications_created_at ON membership_applications(created_at DESC);
   CREATE TABLE IF NOT EXISTS telegram_outbox (
@@ -75,11 +78,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_telegram_outbox_pending
     ON telegram_outbox(sent_at, next_attempt_at, created_at);
 `);
+if (!db.prepare('PRAGMA table_info(membership_applications)').all().some(column => column.name === 'consent_version')) {
+  db.exec('ALTER TABLE membership_applications ADD COLUMN consent_version TEXT');
+}
 db.prepare(`DELETE FROM telegram_outbox WHERE application_type <> 'membership'`).run();
 const insertMembershipApplication = db.prepare(`
   INSERT INTO membership_applications
-  (id, created_at, full_name, phone, email, telegram, company, role, consent)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+  (id, created_at, full_name, phone, email, telegram, company, role, consent, consent_version)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
 `);
 const insertTelegramOutbox = db.prepare(`
   INSERT INTO telegram_outbox
@@ -251,14 +257,28 @@ function formatTelegramDate(isoDate) {
   }
 }
 
-function buildTelegramMessage(_values, createdAt) {
-  return [
+function buildTelegramMessage(values, createdAt) {
+  const lines = [
     '🤝 <b>Поступила новая заявка «Стать участником»</b>',
     '',
-    `<b>Дата:</b> ${escapeTelegramHtml(formatTelegramDate(createdAt))}`,
-    'Персональные данные сохранены только в базе на сервере и не переданы в это уведомление.',
-    'Для просмотра выполните защищённый экспорт заявок на сервере.'
-  ].join('\n').slice(0, 4096);
+    `<b>Дата:</b> ${escapeTelegramHtml(formatTelegramDate(createdAt))}`
+  ];
+  if (TELEGRAM_INCLUDE_PERSONAL_DATA) {
+    lines.push(
+      `<b>ФИО:</b> ${escapeTelegramHtml(values.fullName)}`,
+      `<b>Телефон:</b> ${escapeTelegramHtml(values.phone)}`,
+      `<b>Email:</b> ${escapeTelegramHtml(values.email)}`,
+      `<b>Telegram:</b> ${escapeTelegramHtml(values.telegram)}`,
+      `<b>Компания:</b> ${escapeTelegramHtml(values.company)}`,
+      `<b>Роль в компании:</b> ${escapeTelegramHtml(values.role)}`
+    );
+  } else {
+    lines.push(
+      'Персональные данные сохранены только в базе на сервере и не переданы в это уведомление.',
+      'Для просмотра выполните защищённый экспорт заявок на сервере.'
+    );
+  }
+  return lines.join('\n');
 }
 
 function queueTelegramNotification(applicationId, values, createdAt) {
@@ -384,7 +404,7 @@ async function handleMembershipApplication(req, res) {
     const createdAt = new Date().toISOString();
     db.exec('BEGIN IMMEDIATE');
     try {
-      insertMembershipApplication.run(id, createdAt, values.fullName, values.phone, values.email, values.telegram, values.company, values.role);
+      insertMembershipApplication.run(id, createdAt, values.fullName, values.phone, values.email, values.telegram, values.company, values.role, CONSENT_VERSION);
       queueTelegramNotification(id, values, createdAt);
       db.exec('COMMIT');
     } catch (error) {
@@ -467,7 +487,7 @@ const server = createServer(async (req, res) => {
   if ((req.method === 'GET' || req.method === 'HEAD') && isRemovedPath(pathname)) return sendGone(req, res);
 
   if (req.method === 'POST' && pathname === '/api/membership-applications') return handleMembershipApplication(req, res);
-  if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED, telegramMode:TELEGRAM_MODE});
+  if (req.method === 'GET' && pathname === '/healthz') return sendJson(res, 200, {ok:true, telegramConfigured:TELEGRAM_CONFIGURED, telegramMode:TELEGRAM_MODE, telegramPersonalDataEnabled:TELEGRAM_INCLUDE_PERSONAL_DATA});
   if ((req.method === 'GET' || req.method === 'HEAD') && serveFont(req, res, pathname)) return;
   if ((req.method === 'GET' || req.method === 'HEAD') && serveStatic(req, res, pathname)) return;
 

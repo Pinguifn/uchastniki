@@ -12,9 +12,10 @@ if (!existsSync(dbPath)) {
 }
 const output = resolve(process.argv[2] || join(ROOT, `membership-applications-${new Date().toISOString().slice(0,10)}.csv`));
 const db = new DatabaseSync(dbPath, {readOnly:true});
-const rows = db.prepare('SELECT created_at, full_name, phone, email, telegram, company, role FROM membership_applications ORDER BY created_at DESC').all();
-const columns = ['Дата','ФИО','Телефон','Email','Telegram','Компания','Роль в компании'];
-const keys = ['created_at','full_name','phone','email','telegram','company','role'];
+const hasConsentVersion = db.prepare('PRAGMA table_info(membership_applications)').all().some(column => column.name === 'consent_version');
+const rows = db.prepare(`SELECT created_at, full_name, phone, email, telegram, company, role${hasConsentVersion ? ', consent_version' : ''} FROM membership_applications ORDER BY created_at DESC`).all();
+const columns = ['Дата','ФИО','Телефон','Email','Telegram','Компания','Роль в компании','Версия согласия'];
+const keys = ['created_at','full_name','phone','email','telegram','company','role','consent_version'];
 const neutralizeFormula = value => {
   const text = String(value ?? '');
   return /^[=+\-@]/.test(text) ? `'${text}` : text;
